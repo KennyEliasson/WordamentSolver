@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
@@ -12,15 +13,21 @@ namespace WordamentSolver
     {
         static void Main(string[] args)
         {
+            var swedishWords = new List<string>();
+            foreach (var line in File.ReadLines("dictionary.txt"))
+            {
+                swedishWords.Add(line.Split('/')[0].ToUpper());   
+            }
+
             var board = new Board(new List<string>()
             {
-                "KENN",
-                "JENN",
-                "TEST",
-                "AWES",
+                "ENER",
+                "ASOI",
+                "EIEV",
+                "ARTR",
             });
 
-            var trie = new Trie<string>(new List<string>() { "TAWST" }, x => x, StringComparer.Ordinal);
+            var trie = new Trie<string>(swedishWords, x => x, StringComparer.Ordinal);
             board.CreateAllCombinations(trie);
 
             var f = board;
@@ -50,8 +57,7 @@ namespace WordamentSolver
 
 
             for (int row = 0; row < lines.Count; row++)
-            {
-                
+            {                
                 for (int column = 0; column < lines[row].Length; column++)
                 {
                     var boardLetter = new BoardLetter {
@@ -65,9 +71,7 @@ namespace WordamentSolver
                     _box[row, column] = boardLetter;
                 }
             }
-
-
-
+            
             foreach (var letter in _box)
             {
                 letter.Adjacent = new List<BoardLetter> {
@@ -81,9 +85,6 @@ namespace WordamentSolver
                     GetBoardLetterAtPosition(letter.Column + 1, letter.Row + 1)
                 }.Where(x => x != null).ToList();
             }
-
-           
-
         }
 
         private BoardLetter GetBoardLetterAtPosition(int column, int row )
@@ -106,8 +107,15 @@ namespace WordamentSolver
         public void CreateAllCombinations(Trie<string> validWords)
         {
             var results = new List<string>();
-            _box[2, 0].Build(new HashSet<BoardLetter>(), results, validWords);
-            
+            for (int row = 0; row < _box.GetLength(0); row++)
+            {
+                for (int column = 0; column < _box.GetLength(1); column++)
+                {
+                    _box[row, column].Build(new HashSet<BoardLetter>(), results, validWords);
+                }
+            }
+
+            results = results.OrderBy(x => x.Length).ToList();
         }
     }
     
