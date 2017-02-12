@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace WordamentSolver
 {
@@ -19,54 +17,43 @@ namespace WordamentSolver
                 swedishWords.Add(line.Split('/')[0].ToUpper());   
             }
 
-            var board = new Board(new List<string>()
+            var board = new Board(new List<string>
             {
-                "ENER",
-                "ASOI",
-                "EIEV",
-                "ARTR",
+                "SK|A|D|A",
+                "X|X|X|X",
+                "X|X|X|X",
+                "X|X|X|X"
             });
 
             var trie = new Trie<string>(swedishWords, x => x, StringComparer.Ordinal);
-            board.CreateAllCombinations(trie);
+            var results = board.CreateAllCombinations(trie);
 
-            var f = board;
+            var g = results;
         }
     }
 
     public class Board
     {
-        private readonly char[,] _letters = new char[4, 4];
-        private readonly BoardLetter[,] _box = new BoardLetter[0,0];
-
-        public Board(char[,] letters)
-        {
-            _letters = letters;
-
-
-            foreach (var letter in _letters)
-            {
-                Console.WriteLine(letter);
-            }
-        }
+        private readonly BoardLetter[,] _box;
 
         public Board(List<string> lines)
         {
             // Alla linjer lika långa
-            _box = new BoardLetter[lines.Count, lines[0].Length];
-
+            _box = new BoardLetter[lines.Count, lines[0].Split('|').Length];
 
             for (int row = 0; row < lines.Count; row++)
-            {                
-                for (int column = 0; column < lines[row].Length; column++)
+            {
+                var bricks = lines[row].Split('|');
+                for (var column = 0; column < bricks.Length; column++)
                 {
-                    var boardLetter = new BoardLetter {
+                    var boardLetter = new BoardLetter
+                    {
                         Column = column,
                         Row = row,
-                        Letter = lines[row][column]
+                        Letter = bricks[column]
                     };
 
-                    _letters[row, column] = lines[row][column];
+                    //_letters[row, column] = lines[row][column];
 
                     _box[row, column] = boardLetter;
                 }
@@ -104,9 +91,9 @@ namespace WordamentSolver
             return _box[row, column];
         }
 
-        public void CreateAllCombinations(Trie<string> validWords)
+        public List<string> CreateAllCombinations(Trie<string> validWords)
         {
-            var results = new List<string>();
+            var results = new HashSet<string>();
             for (int row = 0; row < _box.GetLength(0); row++)
             {
                 for (int column = 0; column < _box.GetLength(1); column++)
@@ -115,14 +102,14 @@ namespace WordamentSolver
                 }
             }
 
-            results = results.OrderBy(x => x.Length).ToList();
+            return results.Distinct().OrderBy(x => x.Length).ToList();
         }
     }
     
     [DebuggerDisplay("{Letter} at {Row},{Column}")]
     public class BoardLetter
     {
-        public char Letter { get; set; }
+        public string Letter { get; set; }
 
         public List<BoardLetter> Adjacent { get; set; }
         public bool Visited { get; set; }
@@ -130,7 +117,7 @@ namespace WordamentSolver
         public int Row { get; set; }
         public int Column { get; set; }
 
-        public void Build(HashSet<BoardLetter> visited, List<string> foundWords, Trie<string> validWords, StringBuilder word = null)
+        public void Build(HashSet<BoardLetter> visited, HashSet<string> foundWords, Trie<string> validWords, StringBuilder word = null)
         {
             if (word == null)
                 word = new StringBuilder();
@@ -147,7 +134,6 @@ namespace WordamentSolver
             {
                 foundWords.Add(matches[index]);
             }
-            
 
             foreach (var letter in Adjacent)
             {
@@ -168,7 +154,7 @@ namespace WordamentSolver
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
+            if (obj.GetType() != GetType()) return false;
             return Equals((BoardLetter) obj);
         }
 
@@ -180,80 +166,4 @@ namespace WordamentSolver
             }
         }
     }
-
-    public class Trie<TItem>
-    {
-        #region Constructors
-
-        public Trie(
-            IEnumerable<TItem> items,
-            Func<TItem, string> keySelector,
-            IComparer<TItem> comparer)
-        {
-            this.KeySelector = keySelector;
-            this.Comparer = comparer;
-            this.Items = (from item in items
-                          from i in Enumerable.Range(1, this.KeySelector(item).Length)
-                          let key = this.KeySelector(item).Substring(0, i)
-                          group item by key)
-                         .ToDictionary(group => group.Key, group => group.ToList());
-        }
-
-        #endregion
-
-        #region Properties
-
-        protected Dictionary<string, List<TItem>> Items { get; set; }
-
-        protected Func<TItem, string> KeySelector { get; set; }
-
-        protected IComparer<TItem> Comparer { get; set; }
-
-        #endregion
-
-        #region Methods
-
-        public List<TItem> Retrieve(string prefix)
-        {
-            return this.Items.ContainsKey(prefix)
-                ? this.Items[prefix]
-                : new List<TItem>();
-        }
-
-        public void Add(TItem item)
-        {
-            var keys = (from i in Enumerable.Range(1, this.KeySelector(item).Length)
-                        let key = this.KeySelector(item).Substring(0, i)
-                        select key).ToList();
-            keys.ForEach(key =>
-            {
-                if (!this.Items.ContainsKey(key))
-                {
-                    this.Items.Add(key, new List<TItem> { item });
-                }
-                else if (this.Items[key].All(x => this.Comparer.Compare(x, item) != 0))
-                {
-                    this.Items[key].Add(item);
-                }
-            });
-        }
-
-        public void Remove(TItem item)
-        {
-            this.Items.Keys.ToList().ForEach(key =>
-            {
-                if (this.Items[key].Any(x => this.Comparer.Compare(x, item) == 0))
-                {
-                    this.Items[key].RemoveAll(x => this.Comparer.Compare(x, item) == 0);
-                    if (this.Items[key].Count == 0)
-                    {
-                        this.Items.Remove(key);
-                    }
-                }
-            });
-        }
-
-        #endregion
-    }
-
 }
